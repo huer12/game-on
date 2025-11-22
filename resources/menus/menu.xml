@@ -1,0 +1,6 @@
+<menu id="MainMenu" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://developer.garmin.com/downloads/connect-iq/resources.xsd">
+    <menu-item id="item_beachvolleyball" label="@Strings.menu_beachvolleyball" />
+    <menu-item id="item_squash" label="@Strings.menu_squash" />
+    <menu-item id="item_stop" label="@Strings.menu_stop" />
+    <menu-item id="item_reset" label="@Strings.menu_reset" />
+</menu>

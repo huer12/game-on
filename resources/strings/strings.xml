@@ -1,0 +1,18 @@
+<strings xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://developer.garmin.com/downloads/connect-iq/resources.xsd">
+    <string id="AppName">Game On</string>
+
+    <string id="prompt">Select Sport</string>
+    <string id="score">Score</string>
+    <string id="sets">Sets</string>
+    <string id="game_over">Game Over!</string>
+    <string id="winner">Winner!</string>
+    <string id="confirm_stop_game">Stop Game?</string>
+    <string id="confirm_quit_app">Quit Game On?</string>
+    <string id="yes">Yes</string>
+    <string id="no">No</string>
+
+    <string id="menu_beachvolleyball">Beach Volleyball</string>
+    <string id="menu_squash">Squash</string>
+    <string id="menu_stop">Stop Game</string>
+    <string id="menu_reset">Reset Game</string>
+</strings>

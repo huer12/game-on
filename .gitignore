@@ -1,0 +1,19 @@
+# Garmin Connect IQ build output
+bin/
+
+# Generated files
+*.prg
+*.prg.debug.xml
+
+# IDE files
+.vscode/
+.idea/
+*.sublime-*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.log
