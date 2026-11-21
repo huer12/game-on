@@ -9,6 +9,16 @@ Garmin Connect IQ watch app to keep score during a game of Beach Volleyball, Vol
 - Winner screen after each set; undo still works until the next set starts
 - Touchscreen is disabled while the score screen is shown
 
+## Recorded activity
+Garmin has no activity type for every sport, so the closest one is used. The activity name in Garmin Connect is always the selected sport.
+
+| Selected sport | Garmin sport | Garmin sub-sport | Default end score |
+|---|---|---|---|
+| Beach Volleyball | Volleyball | Generic | 21 |
+| Volleyball | Volleyball | Generic | 25 |
+| Squash | Racket | Squash | 11 |
+| Faustball | Team Sport | Generic | 11 |
+
 ## Buttons during a game
 | Button | Action |
 |---|---|
