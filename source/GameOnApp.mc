@@ -1,216 +1,149 @@
 import Toybox.Application;
-import Toybox.Lang;
-import Toybox.WatchUi;
 import Toybox.Application.Storage;
 import Toybox.ActivityRecording;
 import Toybox.Activity;
+import Toybox.Attention;
+import Toybox.Lang;
+import Toybox.Timer;
+import Toybox.WatchUi;
 
 class GameOnApp extends Application.AppBase {
-    
-    // Game state variables
-    public var playerScore as Number = 0;
-    public var opponentScore as Number = 0;
-    public var playerSets as Number = 0;
-    public var opponentSets as Number = 0;
-    public var maxScore as Number = 21;
-    public var sportName as String = "";
-    public var gameActive as Boolean = false;
-    public var playerServing as Boolean = true; // true = player serves, false = opponent serves
-    public var servingFromRight as Boolean = true; // true = right side, false = left side
-    
-    // Undo history - stores last 5 actions (1 = player, 2 = opponent)
-    private var actionHistory as Array<Number> = [] as Array<Number>;
-    
-    // Activity recording session
-    public var session as ActivityRecording.Session?;
+
+    public var sport as Number = Sports.BEACH_VOLLEYBALL;
+    public var endScore as Number = 21;
+    public var game as Game?;
+
+    private var session as ActivityRecording.Session?;
+    private var startMenu as StartMenu?;
+    private var popTimer as Timer.Timer?;
 
     function initialize() {
         AppBase.initialize();
-        
-        // Load last sport selection from storage
-        var savedSport = Storage.getValue("lastSport");
-        var savedMaxScore = Storage.getValue("lastMaxScore");
-        
-        if (savedSport != null && savedMaxScore != null) {
-            sportName = savedSport as String;
-            maxScore = savedMaxScore as Number;
+
+        var savedSport = Storage.getValue("sport");
+        var savedEndScore = Storage.getValue("endScore");
+        if (savedSport instanceof Number && Sports.isValid(savedSport)) {
+            sport = savedSport;
+            endScore = Sports.defaultEndScore(sport);
+        }
+        if (savedEndScore instanceof Number) {
+            endScore = savedEndScore;
         }
     }
 
-    // onStart() is called on application start up
-    function onStart(state as Dictionary?) as Void {
-    }
-
-    // onStop() is called when your application is exiting
     function onStop(state as Dictionary?) as Void {
+        // Don't lose a recorded match when the system closes the app
+        endGame();
     }
 
-    // Return the initial view of your application here
     function getInitialView() as [Views] or [Views, InputDelegates] {
-        return [ new GameOnView(), new GameOnDelegate() ];
+        var menu = new StartMenu();
+        startMenu = menu;
+        return [menu, new StartMenuDelegate(menu)];
     }
 
-    // Start a new game with the selected sport
-    function startNewGame(sport as String, maxScoreValue as Number) as Void {
-        sportName = sport;
-        maxScore = maxScoreValue;
-        playerScore = 0;
-        opponentScore = 0;
-        playerSets = 0;
-        opponentSets = 0;
-        gameActive = true;
-        
-        // Save sport selection to storage
-        Storage.setValue("lastSport", sport);
-        Storage.setValue("lastMaxScore", maxScoreValue);
-        
-        // Start activity recording
-        startActivityRecording(sport);
+    function selectSport(newSport as Number) as Void {
+        sport = newSport;
+        endScore = Sports.defaultEndScore(newSport);
+        saveSettings();
     }
-    // Start activity recording session
-    function startActivityRecording(sport as String) as Void {
-        // Use SPORT_GENERIC for both sports (Garmin doesn't have specific types for all sports)
-        var sportType = Activity.SPORT_RACKET;
-        if (sport.equals("Beach Volleyball")) {
-            sportType = Activity.SPORT_VOLLEYBALL;
+
+    function selectEndScore(newEndScore as Number) as Void {
+        endScore = newEndScore;
+        if (game != null) {
+            game.endScore = newEndScore;
         }
-        
-        session = ActivityRecording.createSession({
-            :name => sport,
-            :sport => sportType
+        saveSettings();
+    }
+
+    function startGame() as Void {
+        game = new Game(sport, endScore);
+        startRecording();
+    }
+
+    function scorePoint(homeScored as Boolean) as Void {
+        var currentGame = game;
+        if (currentGame == null) {
+            return;
+        }
+        var setsBefore = currentGame.homeSets + currentGame.awaySets;
+        currentGame.scorePoint(homeScored);
+
+        if (currentGame.homeSets + currentGame.awaySets > setsBefore) {
+            if (session != null) {
+                session.addLap();
+            }
+            vibrateFor(1000);
+        } else if (currentGame.sideSwitchDue) {
+            vibrateFor(600);
+        }
+    }
+
+    function endGame() as Void {
+        stopRecording();
+        if (game != null) {
+            History.save(game);
+        }
+        game = null;
+        if (startMenu != null) {
+            startMenu.refresh();
+        }
+    }
+
+    // A Confirmation pops itself after its response, so the game view underneath can only be popped afterwards
+    function returnToStartMenu() as Void {
+        if (popTimer != null) {
+            popTimer.stop();
+        }
+        var timer = new Timer.Timer();
+        timer.start(method(:popGameView), 50, false);
+        popTimer = timer;
+    }
+
+    function popGameView() as Void {
+        popTimer = null;
+        WatchUi.popView(WatchUi.SLIDE_RIGHT);
+    }
+
+    private function saveSettings() as Void {
+        Storage.setValue("sport", sport);
+        Storage.setValue("endScore", endScore);
+    }
+
+    private function startRecording() as Void {
+        stopRecording();
+
+        var activitySport = Activity.SPORT_VOLLEYBALL;
+        var activitySubSport = Activity.SUB_SPORT_GENERIC;
+        if (sport == Sports.SQUASH) {
+            activitySport = Activity.SPORT_RACKET;
+            activitySubSport = Activity.SUB_SPORT_SQUASH;
+        } else if (sport == Sports.FAUSTBALL) {
+            activitySport = Activity.SPORT_TEAM_SPORT;
+        }
+
+        var newSession = ActivityRecording.createSession({
+            :name => Sports.name(sport),
+            :sport => activitySport,
+            :subSport => activitySubSport
         });
-        
-        if (session != null && session.isRecording() == false) {
-            session.start();
-        }    
+        newSession.start();
+        session = newSession;
     }
 
-    // Increment player score
-    function incrementPlayerScore() as Void {
-        if (gameActive) {
-            // If opponent was serving and player scores, player gets serve
-            if (!playerServing) {
-                playerServing = true;
-            } else {
-                // Player was already serving, toggle side after scoring
-                servingFromRight = !servingFromRight;
-            }
-            playerScore++;
-            addToHistory(1);
-            checkSetWinner();
-        }
-    }
-
-    // Decrement player score (prevent negative)
-    function decrementPlayerScore() as Void {
-        if (gameActive && playerScore > 0) {
-            playerScore--;
-        }
-    }
-
-    // Increment opponent score
-    function incrementOpponentScore() as Void {
-        if (gameActive) {
-            // If player was serving and opponent scores, opponent gets serve
-            if (playerServing) {
-                playerServing = false;
-            } else {
-                // Opponent was already serving, toggle side after scoring
-                servingFromRight = !servingFromRight;
-            }
-            opponentScore++;
-            addToHistory(2);
-            checkSetWinner();
-        }
-    }
-
-    // Decrement opponent score (prevent negative)
-    function decrementOpponentScore() as Void {
-        if (gameActive && opponentScore > 0) {
-            opponentScore--;
-        }
-    }
-
-    // Check if a set has been won
-    function checkSetWinner() as Void {
-        var winMargin = 2;
-        
-        // Check if either player has reached the max score with at least 2 point lead
-        if (playerScore >= maxScore && (playerScore - opponentScore) >= winMargin) {
-            playerSets++;
-            playerScore = 0;
-            opponentScore = 0;
-            playerServing = true; // Winner serves first in new set
-            servingFromRight = true; // Reset to right side
-        } else if (opponentScore >= maxScore && (opponentScore - playerScore) >= winMargin) {
-            opponentSets++;
-            playerScore = 0;
-            opponentScore = 0;
-            playerServing = false; // Winner serves first in new set
-            servingFromRight = true; // Reset to right side
-        }
-    }
-
-    // Add action to history (keep max 5)
-    function addToHistory(action as Number) as Void {
-        actionHistory.add(action);
-        if (actionHistory.size() > 5) {
-            actionHistory = actionHistory.slice(1, null) as Array<Number>;
-        }
-    }
-    
-    // Undo last score change
-    function undoLastScore() as Void {
-        if (gameActive && actionHistory.size() > 0) {
-            var lastAction = actionHistory[actionHistory.size() - 1];
-            if (lastAction == 1 && playerScore > 0) {
-                playerScore--;
-                actionHistory = actionHistory.slice(0, actionHistory.size() - 1) as Array<Number>;
-            } else if (lastAction == 2 && opponentScore > 0) {
-                opponentScore--;
-                actionHistory = actionHistory.slice(0, actionHistory.size() - 1) as Array<Number>;
-            }
-        }
-    }
-    
-    // Stop current game but keep set scores
-    function stopGame() as Void {
-        playerScore = 0;
-        opponentScore = 0;
-        gameActive = false;
-        actionHistory = [] as Array<Number>;
-        
-        // Stop and save activity recording
-        stopActivityRecording();
-    }
-    
-    // Stop activity recording session
-    function stopActivityRecording() as Void {
+    private function stopRecording() as Void {
         if (session != null && session.isRecording()) {
             session.stop();
             session.save();
-            session = null;
         }
-    }
-    
-    // Reset the entire game
-    function resetGame() as Void {
-        playerScore = 0;
-        opponentScore = 0;
-        playerSets = 0;
-        opponentSets = 0;
-        gameActive = false;
-        sportName = "";
-        actionHistory = [] as Array<Number>;
-        
-        // Discard activity recording if active
-        if (session != null && session.isRecording()) {
-            session.stop();
-            session.discard();
-            session = null;
-        }
+        session = null;
     }
 
+    private function vibrateFor(durationMs as Number) as Void {
+        if (Attention has :vibrate) {
+            Attention.vibrate([new Attention.VibeProfile(100, durationMs)]);
+        }
+    }
 }
 
 function getApp() as GameOnApp {

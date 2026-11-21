@@ -1,3 +1,7 @@
 <drawables xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://developer.garmin.com/downloads/connect-iq/resources.xsd">
     <bitmap id="LauncherIcon" filename="launcher_icon.svg" dithering="none" />
+    <bitmap id="IconBeachVolleyball" filename="icon_beach.svg" dithering="none" />
+    <bitmap id="IconVolleyball" filename="icon_volleyball.svg" dithering="none" />
+    <bitmap id="IconSquash" filename="icon_squash.svg" dithering="none" />
+    <bitmap id="IconFaustball" filename="icon_faustball.svg" dithering="none" />
 </drawables>
