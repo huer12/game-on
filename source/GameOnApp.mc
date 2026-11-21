@@ -16,6 +16,7 @@ class GameOnApp extends Application.AppBase {
     private var session as ActivityRecording.Session?;
     private var startMenu as StartMenu?;
     private var popTimer as Timer.Timer?;
+    private var alertTimer as Timer.Timer?;
 
     function initialize() {
         AppBase.initialize();
@@ -73,10 +74,27 @@ class GameOnApp extends Application.AppBase {
             if (session != null) {
                 session.addLap();
             }
-            vibrateFor(1000);
+            playVibration([new Attention.VibeProfile(100, 1000)]);
         } else if (currentGame.sideSwitchDue) {
-            vibrateFor(600);
+            // Started right in the key handler, a short vibration was not noticeable on the fenix 8; delay it past the button press
+            if (alertTimer != null) {
+                alertTimer.stop();
+            }
+            var timer = new Timer.Timer();
+            timer.start(method(:onSideSwitchAlert), 300, false);
+            alertTimer = timer;
         }
+    }
+
+    function onSideSwitchAlert() as Void {
+        alertTimer = null;
+        playVibration([
+            new Attention.VibeProfile(100, 300),
+            new Attention.VibeProfile(0, 150),
+            new Attention.VibeProfile(100, 300),
+            new Attention.VibeProfile(0, 150),
+            new Attention.VibeProfile(100, 300)
+        ]);
     }
 
     function endGame() as Void {
@@ -139,9 +157,9 @@ class GameOnApp extends Application.AppBase {
         session = null;
     }
 
-    private function vibrateFor(durationMs as Number) as Void {
+    private function playVibration(pattern as Array<Attention.VibeProfile>) as Void {
         if (Attention has :vibrate) {
-            Attention.vibrate([new Attention.VibeProfile(100, durationMs)]);
+            Attention.vibrate(pattern);
         }
     }
 }
