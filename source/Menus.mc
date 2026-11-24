@@ -8,7 +8,7 @@ class StartMenu extends WatchUi.Menu2 {
         Menu2.initialize({:title => "Game On"});
         addItem(new WatchUi.MenuItem("Start", null, :start, null));
         addItem(new WatchUi.MenuItem("Change sport", null, :sport, null));
-        addItem(new WatchUi.MenuItem("Change end score", null, :score, null));
+        addItem(new WatchUi.MenuItem("Set end score", null, :score, null));
         addItem(new WatchUi.MenuItem("History", "Last game", :history, null));
         refresh();
     }
@@ -190,7 +190,7 @@ class GameMenu extends WatchUi.Menu2 {
         if (game != null && !game.setFinished) {
             addItem(new WatchUi.MenuItem("Change score", "Score " + game.homeScore.format("%d") + ":" + game.awayScore.format("%d"), :setScore, null));
         }
-        addItem(new WatchUi.MenuItem("Change end score", null, :endScore, null));
+        addItem(new WatchUi.MenuItem("Set end score", null, :endScore, null));
         if (game != null && !game.setFinished) {
             addItem(new WatchUi.MenuItem("Reset set", "Score to 0:0", :resetSet, null));
         }

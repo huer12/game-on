@@ -21,6 +21,7 @@ class GameOnApp extends Application.AppBase {
     private var startMenu as StartMenu?;
     private var popTimer as Timer.Timer?;
     private var alertTimer as Timer.Timer?;
+    private var clickTimer as Timer.Timer?;
 
     function initialize() {
         AppBase.initialize();
@@ -107,19 +108,30 @@ class GameOnApp extends Application.AppBase {
         }
         click();
         if (currentGame.sideSwitchDue) {
-            // Started right in the key handler, a short vibration was not noticeable on the fenix 8; delay it past the button press
+            // Click, pause, then two long pulses, so it can't be mistaken for a plain point
             if (alertTimer != null) {
                 alertTimer.stop();
             }
             var timer = new Timer.Timer();
-            timer.start(method(:onSideSwitchAlert), 300, false);
+            timer.start(method(:onSideSwitchAlert), 700, false);
             alertTimer = timer;
         }
     }
 
-    // Confirms a button press that changed the game
+    // Confirms a button press that changed the game. Vibrations started directly in the key handler
+    // got lost on the fenix 8, so it starts shortly after the press.
     function click() as Void {
-        playVibration([new Attention.VibeProfile(100, 60)]);
+        if (clickTimer != null) {
+            clickTimer.stop();
+        }
+        var timer = new Timer.Timer();
+        timer.start(method(:onClick), 100, false);
+        clickTimer = timer;
+    }
+
+    function onClick() as Void {
+        clickTimer = null;
+        playVibration([new Attention.VibeProfile(100, 200)]);
     }
 
     private function onSetFinished() as Void {
@@ -132,11 +144,9 @@ class GameOnApp extends Application.AppBase {
     function onSideSwitchAlert() as Void {
         alertTimer = null;
         playVibration([
-            new Attention.VibeProfile(100, 300),
-            new Attention.VibeProfile(0, 150),
-            new Attention.VibeProfile(100, 300),
-            new Attention.VibeProfile(0, 150),
-            new Attention.VibeProfile(100, 300)
+            new Attention.VibeProfile(100, 400),
+            new Attention.VibeProfile(0, 500),
+            new Attention.VibeProfile(100, 400)
         ]);
     }
 
