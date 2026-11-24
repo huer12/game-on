@@ -22,6 +22,7 @@ class Game {
     // Each entry: [homeScore, awayScore, durationSeconds]
     public var setResults as Array<Array<Number> > = [] as Array<Array<Number> >;
     public var startTime as Number;
+    public var warmupSeconds as Number = 0;
 
     private var homeServedFirstInSet as Boolean = true;
     private var setStartTime as Number;
@@ -108,6 +109,18 @@ class Game {
         beginSet(homeServesFirst);
     }
 
+    function resetSet() as Void {
+        if (setFinished) {
+            return;
+        }
+        pushSnapshot();
+        homeScore = 0;
+        awayScore = 0;
+        sideSwitchDue = false;
+        setStartTime = Time.now().value();
+        beginSet(homeServedFirstInSet);
+    }
+
     function setScore(home as Number, away as Number) as Void {
         pushSnapshot();
         homeScore = home;
@@ -151,13 +164,13 @@ class Game {
         if (!homeWon && !awayWon) {
             return false;
         }
-
         setResults.add([homeScore, awayScore, Time.now().value() - setStartTime]);
         if (homeWon) {
             homeSets++;
         } else {
             awaySets++;
         }
+        sideSwitchDue = false;
         setFinished = true;
         return true;
     }

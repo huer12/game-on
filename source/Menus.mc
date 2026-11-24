@@ -8,7 +8,7 @@ class StartMenu extends WatchUi.Menu2 {
         Menu2.initialize({:title => "Game On"});
         addItem(new WatchUi.MenuItem("Start", null, :start, null));
         addItem(new WatchUi.MenuItem("Change sport", null, :sport, null));
-        addItem(new WatchUi.MenuItem("Score", null, :score, null));
+        addItem(new WatchUi.MenuItem("Change end score", null, :score, null));
         addItem(new WatchUi.MenuItem("History", "Last game", :history, null));
         refresh();
     }
@@ -57,12 +57,30 @@ class StartMenuDelegate extends WatchUi.Menu2InputDelegate {
 
 function startGame() as Void {
     var app = getApp();
-    if (app.sport == Sports.BEACH_VOLLEYBALL) {
-        WatchUi.pushView(buildServeMenu(true), new ServeMenuDelegate(true), WatchUi.SLIDE_LEFT);
+    if (!app.warmupDone) {
+        app.beginWarmup();
+        WatchUi.pushView(new WarmupView(), new WarmupDelegate(), WatchUi.SLIDE_LEFT);
         return;
     }
-    app.startGame();
-    WatchUi.pushView(new GameView(), new GameDelegate(), WatchUi.SLIDE_LEFT);
+    beginPlay(false);
+}
+
+// replaceCurrentView: the game screen takes the place of the warmup screen instead of stacking on top of it
+function beginPlay(replaceCurrentView as Boolean) as Void {
+    if (getApp().sport == Sports.BEACH_VOLLEYBALL) {
+        WatchUi.pushView(buildServeMenu(true), new ServeMenuDelegate(true, replaceCurrentView), WatchUi.SLIDE_LEFT);
+        return;
+    }
+    getApp().startGame();
+    showGameView(replaceCurrentView);
+}
+
+function showGameView(replaceCurrentView as Boolean) as Void {
+    if (replaceCurrentView) {
+        WatchUi.switchToView(new GameView(), new GameDelegate(), WatchUi.SLIDE_LEFT);
+    } else {
+        WatchUi.pushView(new GameView(), new GameDelegate(), WatchUi.SLIDE_LEFT);
+    }
 }
 
 function buildServeMenu(homeFocused as Boolean) as WatchUi.Menu2 {
@@ -77,10 +95,12 @@ function buildServeMenu(homeFocused as Boolean) as WatchUi.Menu2 {
 class ServeMenuDelegate extends WatchUi.Menu2InputDelegate {
 
     private var newGame as Boolean;
+    private var replaceView as Boolean;
 
-    function initialize(startsNewGame as Boolean) {
+    function initialize(startsNewGame as Boolean, replaceCurrentView as Boolean) {
         Menu2InputDelegate.initialize();
         newGame = startsNewGame;
+        replaceView = replaceCurrentView;
     }
 
     function onSelect(item as WatchUi.MenuItem) as Void {
@@ -90,7 +110,7 @@ class ServeMenuDelegate extends WatchUi.Menu2InputDelegate {
 
         if (newGame) {
             app.startGame();
-            WatchUi.pushView(new GameView(), new GameDelegate(), WatchUi.SLIDE_LEFT);
+            showGameView(replaceView);
         }
         var game = app.game;
         if (game == null) {
@@ -168,10 +188,12 @@ class GameMenu extends WatchUi.Menu2 {
         addItem(new WatchUi.MenuItem("Undo last point", null, :undo, null));
         var game = getApp().game;
         if (game != null && !game.setFinished) {
-            addItem(new WatchUi.MenuItem("Set score", null, :setScore, null));
+            addItem(new WatchUi.MenuItem("Change score", "Score " + game.homeScore.format("%d") + ":" + game.awayScore.format("%d"), :setScore, null));
         }
-        addItem(new WatchUi.MenuItem("End score", null, :endScore, null));
-        addItem(new WatchUi.MenuItem("End game", null, :endGame, null));
+        addItem(new WatchUi.MenuItem("Change end score", null, :endScore, null));
+        if (game != null && !game.setFinished) {
+            addItem(new WatchUi.MenuItem("Reset set", "Score to 0:0", :resetSet, null));
+        }
         addItem(new WatchUi.MenuItem("Exit app", null, :exitApp, null));
         refresh();
     }
@@ -215,13 +237,49 @@ class GameMenuDelegate extends WatchUi.Menu2InputDelegate {
             WatchUi.pushView(scoreView, new SetScoreDelegate(scoreView), WatchUi.SLIDE_UP);
         } else if (id == :endScore) {
             WatchUi.pushView(buildEndScoreMenu(game.endScore), new EndScoreMenuDelegate(menu.method(:refresh)), WatchUi.SLIDE_LEFT);
-        } else if (id == :endGame) {
-            WatchUi.popView(WatchUi.SLIDE_IMMEDIATE);
-            confirmEndGame();
+        } else if (id == :resetSet) {
+            game.resetSet();
+            WatchUi.popView(WatchUi.SLIDE_DOWN);
         } else if (id == :exitApp) {
             WatchUi.popView(WatchUi.SLIDE_IMMEDIATE);
             WatchUi.pushView(new WatchUi.Confirmation("Exit app?"), new ExitAppConfirmationDelegate(), WatchUi.SLIDE_UP);
         }
+    }
+}
+
+function confirmResetSet() as Void {
+    WatchUi.pushView(new WatchUi.Confirmation("Reset set?"), new ResetSetConfirmationDelegate(), WatchUi.SLIDE_UP);
+}
+
+class ResetSetConfirmationDelegate extends WatchUi.ConfirmationDelegate {
+
+    function initialize() {
+        ConfirmationDelegate.initialize();
+    }
+
+    function onResponse(response as WatchUi.Confirm) as Boolean {
+        var game = getApp().game;
+        if (response == WatchUi.CONFIRM_YES && game != null) {
+            game.resetSet();
+            WatchUi.requestUpdate();
+        }
+        return true;
+    }
+}
+
+class CancelWarmupConfirmationDelegate extends WatchUi.ConfirmationDelegate {
+
+    function initialize() {
+        ConfirmationDelegate.initialize();
+    }
+
+    function onResponse(response as WatchUi.Confirm) as Boolean {
+        if (response == WatchUi.CONFIRM_YES) {
+            var app = getApp();
+            app.cancelWarmup();
+            app.returnToStartMenu();
+        }
+        return true;
     }
 }
 

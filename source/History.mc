@@ -17,6 +17,7 @@ module History {
             "sport" => game.sport,
             "start" => game.startTime,
             "duration" => game.gameSeconds(),
+            "warmup" => game.warmupSeconds,
             "homeSets" => game.homeSets,
             "awaySets" => game.awaySets,
             "sets" => game.setResults,
@@ -34,8 +35,13 @@ module History {
 
         var menu = new WatchUi.Menu2({:title => Sports.name(saved["sport"] as Number)});
         var result = (saved["homeSets"] as Number).format("%d") + ":" + (saved["awaySets"] as Number).format("%d");
+        var details = minutes(saved["duration"] as Number);
+        var warmup = saved["warmup"];
+        if (warmup instanceof Number && warmup >= 60) {
+            details += ", warmup " + minutes(warmup);
+        }
         menu.addItem(new WatchUi.MenuItem("Result " + result,
-            minutes(saved["duration"] as Number) + ", " + dateText(saved["start"] as Number), :result, null));
+            details + ", " + dateText(saved["start"] as Number), :result, null));
 
         var sets = saved["sets"] as Array<Array<Number> >;
         for (var i = 0; i < sets.size(); i++) {

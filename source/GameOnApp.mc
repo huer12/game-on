@@ -4,6 +4,7 @@ import Toybox.ActivityRecording;
 import Toybox.Activity;
 import Toybox.Attention;
 import Toybox.Lang;
+import Toybox.Time;
 import Toybox.Timer;
 import Toybox.WatchUi;
 
@@ -12,6 +13,9 @@ class GameOnApp extends Application.AppBase {
     public var sport as Number = Sports.BEACH_VOLLEYBALL;
     public var endScore as Number = 21;
     public var game as Game?;
+    // Warmup is offered only once per app start, not before every game
+    public var warmupDone as Boolean = false;
+    public var warmupStart as Number?;
 
     private var session as ActivityRecording.Session?;
     private var startMenu as StartMenu?;
@@ -57,9 +61,36 @@ class GameOnApp extends Application.AppBase {
         saveSettings();
     }
 
-    function startGame() as Void {
-        game = new Game(sport, endScore);
+    function beginWarmup() as Void {
         startRecording();
+        warmupStart = Time.now().value();
+    }
+
+    function warmupSeconds() as Number {
+        return warmupStart != null ? Time.now().value() - warmupStart : 0;
+    }
+
+    function cancelWarmup() as Void {
+        warmupStart = null;
+        if (session != null && session.isRecording()) {
+            session.stop();
+            session.discard();
+        }
+        session = null;
+    }
+
+    function startGame() as Void {
+        var newGame = new Game(sport, endScore);
+        if (warmupStart != null && session != null) {
+            // The warmup becomes the first lap of the already running activity
+            newGame.warmupSeconds = warmupSeconds();
+            session.addLap();
+            warmupStart = null;
+            warmupDone = true;
+        } else {
+            startRecording();
+        }
+        game = newGame;
     }
 
     function scorePoint(homeScored as Boolean) as Void {
@@ -67,15 +98,15 @@ class GameOnApp extends Application.AppBase {
         if (currentGame == null) {
             return;
         }
-        var setsBefore = currentGame.homeSets + currentGame.awaySets;
+        var setsBefore = currentGame.setResults.size();
         currentGame.scorePoint(homeScored);
 
-        if (currentGame.homeSets + currentGame.awaySets > setsBefore) {
-            if (session != null) {
-                session.addLap();
-            }
-            playVibration([new Attention.VibeProfile(100, 1000)]);
-        } else if (currentGame.sideSwitchDue) {
+        if (currentGame.setResults.size() > setsBefore) {
+            onSetFinished();
+            return;
+        }
+        click();
+        if (currentGame.sideSwitchDue) {
             // Started right in the key handler, a short vibration was not noticeable on the fenix 8; delay it past the button press
             if (alertTimer != null) {
                 alertTimer.stop();
@@ -84,6 +115,18 @@ class GameOnApp extends Application.AppBase {
             timer.start(method(:onSideSwitchAlert), 300, false);
             alertTimer = timer;
         }
+    }
+
+    // Confirms a button press that changed the game
+    function click() as Void {
+        playVibration([new Attention.VibeProfile(100, 60)]);
+    }
+
+    private function onSetFinished() as Void {
+        if (session != null) {
+            session.addLap();
+        }
+        playVibration([new Attention.VibeProfile(100, 1000)]);
     }
 
     function onSideSwitchAlert() as Void {
